@@ -1,0 +1,126 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                      String         @id @default(uuid())
+  employeeId              String         @unique
+  fullName                String
+  email                   String         @unique
+  passwordHash            String
+  role                    String         @default("EMPLOYEE") // "ADMIN", "EMPLOYEE"
+  status                  String         @default("ACTIVE") // "ACTIVE", "SUSPENDED"
+  phone                   String?
+  address                 String?
+  profilePhoto            String?
+  emergencyContactName    String?
+  emergencyContactRelation String?
+  emergencyContactPhone   String?
+  isEmailVerified         Boolean        @default(false)
+  verificationToken       String?
+  resetPasswordToken      String?
+  resetPasswordExpires    DateTime?
+  baseSalary              Float          @default(0.0)
+  allowances              Float          @default(0.0)
+  deductions              Float          @default(0.0)
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  attendance              Attendance[]
+  leaves                  LeaveRequest[]
+  payroll                 Payroll[]
+  notifications           Notification[]
+  leaveBalance            LeaveBalance?
+  announcements           Announcement[]
+  documents               Document[]
+}
+
+model Document {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  url       String
+  createdAt DateTime @default(now())
+}
+
+model Attendance {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date         String    // "YYYY-MM-DD"
+  checkIn      DateTime?
+  checkOut     DateTime?
+  status       String    // "PRESENT", "ABSENT", "HALF_DAY", "LEAVE", "LATE"
+  workingHours Float     @default(0.0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, date])
+}
+
+model LeaveRequest {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leaveType     String    // "PAID", "SICK", "CASUAL", "UNPAID"
+  startDate     DateTime
+  endDate       DateTime
+  reason        String
+  attachmentUrl String?
+  status        String    @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
+  comment       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model LeaveBalance {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paid   Int    @default(12)
+  sick   Int    @default(10)
+  casual Int    @default(8)
+  unpaid Int    @default(0)
+}
+
+model Payroll {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month       String   // "YYYY-MM"
+  baseSalary  Float
+  allowances  Float    @default(0.0)
+  deductions  Float    @default(0.0)
+  netSalary   Float
+  status      String   @default("PENDING") // "PENDING", "PAID"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, month])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   // "LEAVE_STATUS", "ATTENDANCE_REMINDER", "PAYROLL", "ANNOUNCEMENT"
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
