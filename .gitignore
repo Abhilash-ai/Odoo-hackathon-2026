@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+.env
+*.db
+*.db-journal
+*.log
+backend/prisma/*.db
+backend/prisma/*.db-journal
+.DS_Store
+.gemini/
+.agents/
