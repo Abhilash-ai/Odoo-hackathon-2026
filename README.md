@@ -1,4 +1,4 @@
-# Antigravity HRMS - Modern Human Resource Management System
+#  HRMS - Modern Human Resource Management System
 
 A production-ready, premium SaaS Human Resource Management System (HRMS) built from scratch. Inspired by leading platforms like Zoho People, BambooHR, and Odoo HR, this system features a sleek modern design, dark/light theme options, robust JWT-based authorization, precise attendance tracking, comprehensive leave management with automatic logs integration, and complete payroll generation utilities.
 
