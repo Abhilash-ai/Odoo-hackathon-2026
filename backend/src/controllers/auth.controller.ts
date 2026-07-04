@@ -12,13 +12,47 @@ const isValidEmail = (email: string) => {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 };
 
+export const getNextEmployeeId = async (companyName: string, fullName: string): Promise<string> => {
+  const currentYear = new Date().getFullYear();
+  
+  // 1. Get first two letters of company name, uppercase
+  const compPrefix = companyName.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase().padEnd(2, 'X');
+  
+  // 2. Get first two letters of first and last name, uppercase
+  const nameParts = fullName.trim().split(/\s+/);
+  let namePrefix = '';
+  if (nameParts.length >= 2) {
+    const firstName = nameParts[0].replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase().padEnd(2, 'X');
+    const lastName = nameParts[nameParts.length - 1].replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase().padEnd(2, 'X');
+    namePrefix = firstName + lastName;
+  } else {
+    namePrefix = fullName.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase().padEnd(4, 'X');
+  }
+  
+  // 3. Count users created in current year for serial number
+  const yearStart = new Date(currentYear, 0, 1);
+  const yearEnd = new Date(currentYear, 11, 31, 23, 59, 59);
+  const countThisYear = await prisma.user.count({
+    where: {
+      createdAt: {
+        gte: yearStart,
+        lte: yearEnd,
+      },
+    },
+  });
+  
+  const serial = String(countThisYear + 1).padStart(4, '0');
+  
+  return `${compPrefix}${namePrefix}${currentYear}${serial}`;
+};
+
 export const signup = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { employeeId, fullName, email, password, role } = req.body;
+    const { companyName, companyLogo, fullName, email, phone, password } = req.body;
 
     // Field Validation
-    if (!employeeId || !fullName || !email || !password || !role) {
-      res.status(400).json({ message: 'All fields are required' });
+    if (!companyName || !fullName || !email || !password) {
+      res.status(400).json({ message: 'Company Name, Full Name, Email, and Password are required' });
       return;
     }
 
@@ -32,24 +66,15 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (!['ADMIN', 'EMPLOYEE'].includes(role)) {
-      res.status(400).json({ message: 'Invalid role. Must be ADMIN or EMPLOYEE' });
-      return;
-    }
-
-    // Check unique employeeId
-    const existingEmployeeId = await prisma.user.findUnique({ where: { employeeId } });
-    if (existingEmployeeId) {
-      res.status(400).json({ message: 'Employee ID already registered' });
-      return;
-    }
-
     // Check unique email
     const existingEmail = await prisma.user.findUnique({ where: { email } });
     if (existingEmail) {
       res.status(400).json({ message: 'Email address already registered' });
       return;
     }
+
+    // Generate unique employee ID automatically
+    const employeeId = await getNextEmployeeId(companyName, fullName);
 
     // Hash Password
     const passwordHash = await bcrypt.hash(password, 10);
@@ -64,8 +89,11 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
           employeeId,
           fullName,
           email,
+          phone: phone || null,
           passwordHash,
-          role,
+          role: 'ADMIN', // Sign-up creates the Admin/HR account
+          companyName,
+          companyLogo: companyLogo || null,
           verificationToken,
           isEmailVerified: false,
         },
@@ -92,8 +120,9 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       email,
       'Verify your HRMS Email Address',
       `<p>Hello ${fullName},</p>
-       <p>Thank you for registering. Please verify your email by clicking the link below:</p>
+       <p>Thank you for registering your company ${companyName}. Please verify your email by clicking the link below:</p>
        <p><a href="${verifyLink}">${verifyLink}</a></p>
+       <p>Your generated Employee Login ID is: <strong>${employeeId}</strong></p>
        <p>If you did not request this, please ignore this email.</p>`
     );
 
