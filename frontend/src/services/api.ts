@@ -109,6 +109,11 @@ export const api = {
 
     exportCSVUrl: () => `${API_BASE_URL}/employees/export`,
 
+    directory: () =>
+      fetch(`${API_BASE_URL}/employees?limit=200`, {
+        headers: getHeaders(),
+      }).then(handleResponse),
+
     uploadDocument: (body: any) =>
       fetch(`${API_BASE_URL}/employees/documents`, {
         method: 'POST',
