@@ -2,6 +2,8 @@ import { Response } from 'express';
 import { prisma } from '../utils/db';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
+import { getNextEmployeeId } from './auth.controller';
 
 // Helper for CSV escaping
 const escapeCSV = (str: string | null | undefined) => {
@@ -127,16 +129,10 @@ export const getEmployeeById = async (req: AuthenticatedRequest, res: Response):
 
 export const createEmployee = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { employeeId, fullName, email, password, role } = req.body;
+    const { fullName, email, role } = req.body;
 
-    if (!employeeId || !fullName || !email || !password || !role) {
-      res.status(400).json({ message: 'All fields are required' });
-      return;
-    }
-
-    const existingId = await prisma.user.findUnique({ where: { employeeId } });
-    if (existingId) {
-      res.status(400).json({ message: 'Employee ID already exists' });
+    if (!fullName || !email || !role) {
+      res.status(400).json({ message: 'Full Name, Email and Role are required' });
       return;
     }
 
@@ -146,7 +142,20 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    // Fetch admin user's company profile to set company prefix
+    const admin = await prisma.user.findUnique({
+      where: { id: req.user?.id! },
+    });
+
+    const companyName = admin?.companyName || 'Company';
+    const companyLogo = admin?.companyLogo || null;
+
+    // Auto-generate employee ID
+    const employeeId = await getNextEmployeeId(companyName, fullName);
+
+    // Auto-generate temporary password
+    const tempPassword = crypto.randomBytes(4).toString('hex');
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
 
     const employee = await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
@@ -156,7 +165,9 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
           email,
           passwordHash,
           role,
-          isEmailVerified: true, // Created by admin, assume pre-verified or direct activation
+          companyName,
+          companyLogo,
+          isEmailVerified: true, // Direct created by admin, pre-verified
         },
       });
 
@@ -182,6 +193,10 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
         email: employee.email,
         role: employee.role,
         status: employee.status,
+      },
+      credentials: {
+        employeeId: employee.employeeId,
+        password: tempPassword,
       },
     });
   } catch (error) {
@@ -237,11 +252,33 @@ export const updateEmployee = async (req: AuthenticatedRequest, res: Response): 
 
     // Admin-only updates
     if (isAdmin) {
-      const { fullName, email, employeeId, role, status } = req.body;
+      const {
+        fullName,
+        email,
+        employeeId,
+        role,
+        status,
+        baseSalary,
+        workingDaysPerWeek,
+        hraPercent,
+        standardAllowance,
+        bonusPercent,
+        ltaPercent,
+        professionalTax,
+        pfPercent,
+      } = req.body;
 
       if (fullName !== undefined) dataToUpdate.fullName = fullName;
       if (role !== undefined) dataToUpdate.role = role;
       if (status !== undefined) dataToUpdate.status = status;
+      if (baseSalary !== undefined) dataToUpdate.baseSalary = Number(baseSalary);
+      if (workingDaysPerWeek !== undefined) dataToUpdate.workingDaysPerWeek = Number(workingDaysPerWeek);
+      if (hraPercent !== undefined) dataToUpdate.hraPercent = Number(hraPercent);
+      if (standardAllowance !== undefined) dataToUpdate.standardAllowance = Number(standardAllowance);
+      if (bonusPercent !== undefined) dataToUpdate.bonusPercent = Number(bonusPercent);
+      if (ltaPercent !== undefined) dataToUpdate.ltaPercent = Number(ltaPercent);
+      if (professionalTax !== undefined) dataToUpdate.professionalTax = Number(professionalTax);
+      if (pfPercent !== undefined) dataToUpdate.pfPercent = Number(pfPercent);
 
       if (employeeId !== undefined && employeeId !== existingUser.employeeId) {
         const idCheck = await prisma.user.findUnique({ where: { employeeId } });
