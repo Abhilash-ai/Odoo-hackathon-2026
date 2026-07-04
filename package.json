@@ -1,5 +1,5 @@
 {
-  "name": "antigravity-hrms-workspace",
+  "name": "hrms-workspace",
   "version": "1.0.0",
   "description": "Root workspace scripts runner for Antigravity HRMS",
   "scripts": {
