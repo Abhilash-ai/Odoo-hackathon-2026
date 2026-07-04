@@ -15,6 +15,17 @@ export interface User {
   emergencyContactName?: string;
   emergencyContactRelation?: string;
   emergencyContactPhone?: string;
+  companyName?: string;
+  companyLogo?: string;
+  baseSalary?: number;
+  workingDaysPerWeek?: number;
+  hraPercent?: number;
+  standardAllowance?: number;
+  bonusPercent?: number;
+  ltaPercent?: number;
+  professionalTax?: number;
+  pfPercent?: number;
+  createdAt?: string;
 }
 
 interface AuthContextType {
